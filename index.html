@@ -1,0 +1,493 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Calendar Wallpaper</title>
+<style>
+  :root {
+    --bg: #17233a;
+    --grad: linear-gradient(160deg, #16223b 0%, #2c4a6b 55%, #547da6 100%);
+    --ink: #eaf1fa;
+    --ink-soft: rgba(234, 241, 250, 0.55);
+    --accent: #8fc1e8;
+    --accent-ink: #10233a;
+    --ui-bg: rgba(0, 0, 0, 0.28);
+    --ui-line: rgba(255, 255, 255, 0.16);
+  }
+
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+
+  html, body {
+    width: 100%;
+    height: 100%;
+    overflow: hidden;
+  }
+
+  body {
+    font-family: "SF Pro Display", -apple-system, BlinkMacSystemFont, "Helvetica Neue", Arial, sans-serif;
+    color: var(--ink);
+    background: var(--bg);
+    -webkit-font-smoothing: antialiased;
+    user-select: none;
+    cursor: default;
+  }
+
+  /* ---- backdrop ---- */
+  #backdrop {
+    position: fixed;
+    inset: 0;
+    background: var(--bg);
+    transition: background 700ms ease;
+  }
+  #backdrop.gradient { background: var(--grad); }
+
+  /* subtle grain to kill gradient banding */
+  #grain {
+    position: fixed;
+    inset: 0;
+    pointer-events: none;
+    opacity: 0.035;
+    mix-blend-mode: overlay;
+    background-image: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='140' height='140'><filter id='n'><feTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='2' stitchTiles='stitch'/></filter><rect width='100%25' height='100%25' filter='url(%23n)'/></svg>");
+  }
+
+  /* soft vignette for depth */
+  #vignette {
+    position: fixed;
+    inset: 0;
+    pointer-events: none;
+    background: radial-gradient(120% 120% at 50% 40%, transparent 55%, rgba(0, 0, 0, 0.22) 100%);
+  }
+
+  /* ---- content ---- */
+  #stage {
+    position: fixed;
+    inset: 0;
+    display: flex;
+    padding: clamp(40px, 7vmin, 120px);
+  }
+  #stage.pos-center { align-items: center; justify-content: center; text-align: center; }
+  #stage.pos-corner { align-items: flex-end; justify-content: flex-start; text-align: left; }
+
+  #card {
+    display: flex;
+    flex-direction: column;
+    gap: clamp(14px, 2.4vmin, 32px);
+  }
+  #stage.pos-center #card { align-items: center; }
+  #stage.pos-corner #card { align-items: flex-start; }
+
+  .eyebrow {
+    font-size: clamp(13px, 1.7vmin, 22px);
+    font-weight: 600;
+    letter-spacing: 0.42em;
+    text-transform: uppercase;
+    color: var(--ink-soft);
+    padding-left: 0.42em;
+  }
+
+  #numeral {
+    font-size: clamp(120px, 40vmin, 620px);
+    font-weight: 800;
+    line-height: 0.82;
+    letter-spacing: -0.03em;
+    font-variant-numeric: lining-nums;
+  }
+
+  #monthline {
+    font-size: clamp(18px, 3vmin, 46px);
+    font-weight: 600;
+    letter-spacing: 0.01em;
+  }
+  #monthline .year { color: var(--ink-soft); font-weight: 500; }
+
+  /* ---- mini calendar ---- */
+  #cal {
+    margin-top: clamp(6px, 1.4vmin, 20px);
+    display: grid;
+    grid-template-columns: repeat(7, 1fr);
+    gap: clamp(3px, 0.7vmin, 10px);
+    font-size: clamp(11px, 1.5vmin, 20px);
+    font-weight: 500;
+    font-variant-numeric: tabular-nums;
+  }
+  #cal .dow {
+    color: var(--ink-soft);
+    font-weight: 600;
+    text-transform: uppercase;
+    font-size: 0.82em;
+    letter-spacing: 0.08em;
+    text-align: center;
+    padding-bottom: 0.4em;
+  }
+  #cal .cell {
+    aspect-ratio: 1 / 1;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    border-radius: 50%;
+    min-width: clamp(20px, 3.1vmin, 44px);
+  }
+  #cal .cell.muted { color: transparent; }
+  #cal .cell.today {
+    background: var(--accent);
+    color: var(--accent-ink);
+    font-weight: 700;
+  }
+
+  /* ---- settings menu ---- */
+  #gear {
+    position: fixed;
+    top: 18px;
+    right: 18px;
+    width: 34px;
+    height: 34px;
+    border-radius: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    background: var(--ui-bg);
+    border: 1px solid var(--ui-line);
+    color: var(--ink);
+    opacity: 0;
+    transition: opacity 200ms ease;
+    cursor: pointer;
+    backdrop-filter: blur(8px);
+    -webkit-backdrop-filter: blur(8px);
+  }
+  body:hover #gear { opacity: 0.5; }
+  #gear:hover { opacity: 1; }
+  #gear svg { width: 18px; height: 18px; display: block; }
+
+  #panel {
+    position: fixed;
+    top: 60px;
+    right: 18px;
+    width: 250px;
+    padding: 16px;
+    border-radius: 16px;
+    background: var(--ui-bg);
+    border: 1px solid var(--ui-line);
+    backdrop-filter: blur(18px);
+    -webkit-backdrop-filter: blur(18px);
+    color: var(--ink);
+    font-size: 13px;
+    display: none;
+    z-index: 10;
+  }
+  #panel.open { display: block; }
+  #panel h2 {
+    font-size: 11px;
+    font-weight: 700;
+    letter-spacing: 0.16em;
+    text-transform: uppercase;
+    color: var(--ink-soft);
+    margin-bottom: 12px;
+  }
+  .row { margin-bottom: 12px; }
+  .row:last-child { margin-bottom: 0; }
+  .row > label {
+    display: block;
+    font-size: 11px;
+    font-weight: 600;
+    letter-spacing: 0.06em;
+    text-transform: uppercase;
+    color: var(--ink-soft);
+    margin-bottom: 6px;
+  }
+  .seg {
+    display: flex;
+    border: 1px solid var(--ui-line);
+    border-radius: 9px;
+    overflow: hidden;
+  }
+  .seg button {
+    flex: 1;
+    padding: 7px 4px;
+    background: transparent;
+    border: 0;
+    border-left: 1px solid var(--ui-line);
+    color: var(--ink);
+    font: inherit;
+    font-size: 12px;
+    cursor: pointer;
+    transition: background 140ms ease;
+  }
+  .seg button:first-child { border-left: 0; }
+  .seg button:hover { background: rgba(255, 255, 255, 0.08); }
+  .seg button.active { background: var(--accent); color: var(--accent-ink); font-weight: 700; }
+
+  #panel .hint {
+    margin-top: 14px;
+    font-size: 11px;
+    line-height: 1.5;
+    color: var(--ink-soft);
+  }
+</style>
+</head>
+<body>
+  <div id="backdrop"></div>
+  <div id="grain"></div>
+  <div id="vignette"></div>
+
+  <div id="stage">
+    <div id="card">
+      <div class="eyebrow" id="weekday">TUESDAY</div>
+      <div id="numeral">1</div>
+      <div id="monthline">January <span class="year">2026</span></div>
+      <div id="cal"></div>
+    </div>
+  </div>
+
+  <div id="gear" title="Settings">
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+      <circle cx="12" cy="12" r="3"></circle>
+      <path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 8 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06A1.65 1.65 0 0 0 3.68 15a1.65 1.65 0 0 0-1.51-1H2a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 3.6 8a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 1 1 2.83-2.83l.06.06A1.65 1.65 0 0 0 8 3.68 1.65 1.65 0 0 0 9 2.17V2a2 2 0 0 1 4 0v.09A1.65 1.65 0 0 0 14 3.6a1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 1 1 2.83 2.83l-.06.06A1.65 1.65 0 0 0 20.4 8c.26.63.9 1.05 1.6 1H22a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"></path>
+    </svg>
+  </div>
+
+  <div id="panel">
+    <h2>Wallpaper</h2>
+    <div class="row">
+      <label>Fill</label>
+      <div class="seg" data-setting="style">
+        <button data-value="gradient">Gradient</button>
+        <button data-value="solid">Solid</button>
+      </div>
+    </div>
+    <div class="row">
+      <label>Hemisphere</label>
+      <div class="seg" data-setting="hemisphere">
+        <button data-value="north">North</button>
+        <button data-value="south">South</button>
+      </div>
+    </div>
+    <div class="row">
+      <label>Week starts</label>
+      <div class="seg" data-setting="weekStart">
+        <button data-value="0">Sun</button>
+        <button data-value="1">Mon</button>
+      </div>
+    </div>
+    <div class="row">
+      <label>Layout</label>
+      <div class="seg" data-setting="layout">
+        <button data-value="center">Center</button>
+        <button data-value="corner">Corner</button>
+      </div>
+    </div>
+    <div class="hint">Palette follows the month &amp; season automatically.</div>
+  </div>
+
+<script>
+(function () {
+  "use strict";
+
+  /* Twelve palettes, indexed by Northern-hemisphere month (0 = January).
+     Winter runs deep & dark, spring lightens, summer turns warm & bright,
+     autumn goes rich and earthy. Each carries its own ink so contrast holds. */
+  var PALETTES = [
+    { // Jan — deep winter
+      bg: "#17233a",
+      grad: "linear-gradient(160deg, #16223b 0%, #2c4a6b 55%, #547da6 100%)",
+      ink: "#eaf1fa", inkSoft: "rgba(234,241,250,0.55)", accent: "#8fc1e8", accentInk: "#10233a"
+    },
+    { // Feb — late winter, frost & lavender
+      bg: "#232236",
+      grad: "linear-gradient(160deg, #1e1d30 0%, #3d3a5c 55%, #726f9e 100%)",
+      ink: "#efedf8", inkSoft: "rgba(239,237,248,0.55)", accent: "#b6a6e6", accentInk: "#201f33"
+    },
+    { // Mar — early spring, thaw
+      bg: "#dfe9d6",
+      grad: "linear-gradient(160deg, #eef3e5 0%, #d3e4cb 55%, #b4d7c6 100%)",
+      ink: "#33402c", inkSoft: "rgba(51,64,44,0.55)", accent: "#6ba85f", accentInk: "#ffffff"
+    },
+    { // Apr — spring blossom
+      bg: "#efe4ea",
+      grad: "linear-gradient(160deg, #f7edf1 0%, #e7dbe9 52%, #d7e6dd 100%)",
+      ink: "#4a3a44", inkSoft: "rgba(74,58,68,0.5)", accent: "#e08fb2", accentInk: "#ffffff"
+    },
+    { // May — late spring, lush
+      bg: "#dcebd3",
+      grad: "linear-gradient(160deg, #e7f1dc 0%, #c7e3bd 52%, #a6d3c3 100%)",
+      ink: "#2f4030", inkSoft: "rgba(47,64,48,0.52)", accent: "#5fb277", accentInk: "#ffffff"
+    },
+    { // Jun — early summer, sky & gold
+      bg: "#f3ead2",
+      grad: "linear-gradient(160deg, #f8f0d9 0%, #f1dfb4 50%, #cfe3e6 100%)",
+      ink: "#45412f", inkSoft: "rgba(69,65,47,0.5)", accent: "#e6a92f", accentInk: "#3a2f0a"
+    },
+    { // Jul — high summer, sun
+      bg: "#ffe6cd",
+      grad: "linear-gradient(160deg, #ffeed9 0%, #ffcfa8 52%, #ffb18a 100%)",
+      ink: "#5b3320", inkSoft: "rgba(91,51,32,0.5)", accent: "#ff7a4d", accentInk: "#ffffff"
+    },
+    { // Aug — late summer, amber
+      bg: "#d99a52",
+      grad: "linear-gradient(160deg, #e7b06a 0%, #d98f4a 52%, #c56f3b 100%)",
+      ink: "#3d230f", inkSoft: "rgba(61,35,15,0.55)", accent: "#ffdca6", accentInk: "#3d230f"
+    },
+    { // Sep — early autumn, ochre
+      bg: "#b8783d",
+      grad: "linear-gradient(160deg, #cf9350 0%, #b06a35 52%, #8f4f2c 100%)",
+      ink: "#f5e6d4", inkSoft: "rgba(245,230,212,0.6)", accent: "#f0c078", accentInk: "#3a1f10"
+    },
+    { // Oct — autumn, rust
+      bg: "#9a4a2e",
+      grad: "linear-gradient(160deg, #b45733 0%, #8f3f27 52%, #6b2c22 100%)",
+      ink: "#f6e3d5", inkSoft: "rgba(246,227,213,0.58)", accent: "#e8935a", accentInk: "#3a1710"
+    },
+    { // Nov — late autumn, plum & bark
+      bg: "#4a2f33",
+      grad: "linear-gradient(160deg, #3e292d 0%, #5c3a3f 52%, #7d534f 100%)",
+      ink: "#f0e2dd", inkSoft: "rgba(240,226,221,0.55)", accent: "#cf9080", accentInk: "#2e1b1e"
+    },
+    { // Dec — deep winter, pine
+      bg: "#16302b",
+      grad: "linear-gradient(160deg, #112a24 0%, #1f4a3f 52%, #356b57 100%)",
+      ink: "#e8f2ec", inkSoft: "rgba(232,242,236,0.55)", accent: "#7fc7a6", accentInk: "#0f2a22"
+    }
+  ];
+
+  var WEEKDAYS = ["Sunday", "Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday"];
+  var MONTHS = ["January", "February", "March", "April", "May", "June",
+                "July", "August", "September", "October", "November", "December"];
+  var DOW_SUN = ["S", "M", "T", "W", "T", "F", "S"];
+
+  var DEFAULTS = { style: "gradient", hemisphere: "north", weekStart: "0", layout: "center" };
+
+  function load() {
+    var s = {};
+    Object.keys(DEFAULTS).forEach(function (k) {
+      var v = null;
+      try { v = localStorage.getItem("cw." + k); } catch (e) {}
+      s[k] = v === null ? DEFAULTS[k] : v;
+    });
+    return s;
+  }
+  function save(k, v) {
+    try { localStorage.setItem("cw." + k, v); } catch (e) {}
+  }
+
+  var settings = load();
+  var lastKey = "";
+
+  function paletteFor(monthIndex) {
+    var idx = settings.hemisphere === "south" ? (monthIndex + 6) % 12 : monthIndex;
+    return PALETTES[idx];
+  }
+
+  function applyPalette(p) {
+    var r = document.documentElement.style;
+    r.setProperty("--bg", p.bg);
+    r.setProperty("--grad", p.grad);
+    r.setProperty("--ink", p.ink);
+    r.setProperty("--ink-soft", p.inkSoft);
+    r.setProperty("--accent", p.accent);
+    r.setProperty("--accent-ink", p.accentInk);
+  }
+
+  function buildCalendar(now) {
+    var cal = document.getElementById("cal");
+    cal.innerHTML = "";
+    var weekStart = parseInt(settings.weekStart, 10) || 0;
+    var today = now.getDate();
+    var year = now.getFullYear();
+    var month = now.getMonth();
+
+    for (var i = 0; i < 7; i++) {
+      var d = document.createElement("div");
+      d.className = "dow";
+      d.textContent = DOW_SUN[(weekStart + i) % 7];
+      cal.appendChild(d);
+    }
+
+    var firstDow = new Date(year, month, 1).getDay();
+    var lead = (firstDow - weekStart + 7) % 7;
+    var daysInMonth = new Date(year, month + 1, 0).getDate();
+
+    for (var b = 0; b < lead; b++) {
+      var m = document.createElement("div");
+      m.className = "cell muted";
+      m.textContent = "0";
+      cal.appendChild(m);
+    }
+    for (var day = 1; day <= daysInMonth; day++) {
+      var c = document.createElement("div");
+      c.className = "cell" + (day === today ? " today" : "");
+      c.textContent = day;
+      cal.appendChild(c);
+    }
+  }
+
+  function render(force) {
+    var now = new Date();
+    var key = now.getFullYear() + "-" + now.getMonth() + "-" + now.getDate() + "|" +
+      settings.style + settings.hemisphere + settings.weekStart + settings.layout;
+    if (!force && key === lastKey) return;
+    lastKey = key;
+
+    applyPalette(paletteFor(now.getMonth()));
+
+    document.getElementById("weekday").textContent = WEEKDAYS[now.getDay()].toUpperCase();
+    document.getElementById("numeral").textContent = now.getDate();
+    document.getElementById("monthline").innerHTML =
+      MONTHS[now.getMonth()] + ' <span class="year">' + now.getFullYear() + "</span>";
+
+    document.getElementById("backdrop").classList.toggle("gradient", settings.style === "gradient");
+    var stage = document.getElementById("stage");
+    stage.className = "pos-" + (settings.layout === "corner" ? "corner" : "center");
+
+    buildCalendar(now);
+    syncControls();
+  }
+
+  /* ---- settings UI ---- */
+  function syncControls() {
+    document.querySelectorAll(".seg").forEach(function (seg) {
+      var name = seg.getAttribute("data-setting");
+      seg.querySelectorAll("button").forEach(function (btn) {
+        btn.classList.toggle("active", btn.getAttribute("data-value") === settings[name]);
+      });
+    });
+  }
+
+  document.querySelectorAll(".seg").forEach(function (seg) {
+    var name = seg.getAttribute("data-setting");
+    seg.addEventListener("click", function (e) {
+      var btn = e.target.closest("button");
+      if (!btn) return;
+      settings[name] = btn.getAttribute("data-value");
+      save(name, settings[name]);
+      render(true);
+    });
+  });
+
+  var panel = document.getElementById("panel");
+  document.getElementById("gear").addEventListener("click", function () {
+    panel.classList.toggle("open");
+  });
+  document.addEventListener("click", function (e) {
+    if (!panel.contains(e.target) && e.target.closest("#gear") === null) {
+      panel.classList.remove("open");
+    }
+  });
+
+  /* ---- clock ---- */
+  render(true);
+
+  function scheduleMidnight() {
+    var now = new Date();
+    var next = new Date(now.getFullYear(), now.getMonth(), now.getDate() + 1, 0, 0, 3);
+    setTimeout(function () { render(true); scheduleMidnight(); }, next - now);
+  }
+  scheduleMidnight();
+  setInterval(function () { render(false); }, 60 * 1000);
+  document.addEventListener("visibilitychange", function () {
+    if (!document.hidden) render(false);
+  });
+})();
+</script>
+</body>
+</html>
