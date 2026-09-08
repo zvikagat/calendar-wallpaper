@@ -90,6 +90,7 @@
   #numeral {
     font-size: clamp(120px, 40vmin, 620px);
     font-weight: 800;
+    cursor: pointer;
     line-height: 0.82;
     letter-spacing: -0.03em;
     font-variant-numeric: lining-nums;
@@ -139,8 +140,8 @@
   /* ---- settings menu ---- */
   #gear {
     position: fixed;
-    top: 18px;
-    right: 18px;
+    bottom: 76px;
+    right: 24px;
     width: 34px;
     height: 34px;
     border-radius: 50%;
@@ -162,8 +163,8 @@
 
   #panel {
     position: fixed;
-    top: 60px;
-    right: 18px;
+    bottom: 118px;
+    right: 24px;
     width: 250px;
     padding: 16px;
     border-radius: 16px;
@@ -465,11 +466,14 @@
   });
 
   var panel = document.getElementById("panel");
-  document.getElementById("gear").addEventListener("click", function () {
-    panel.classList.toggle("open");
-  });
+  function togglePanel() { panel.classList.toggle("open"); }
+  document.getElementById("gear").addEventListener("click", togglePanel);
+  // fallback trigger if a menu bar / dock covers the gear: click the date numeral
+  document.getElementById("numeral").addEventListener("click", togglePanel);
   document.addEventListener("click", function (e) {
-    if (!panel.contains(e.target) && e.target.closest("#gear") === null) {
+    if (!panel.contains(e.target) &&
+        e.target.closest("#gear") === null &&
+        e.target.id !== "numeral") {
       panel.classList.remove("open");
     }
   });

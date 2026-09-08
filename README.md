@@ -10,7 +10,10 @@ no build step, no dependencies, no tracking.
 - The current month, year, and a mini month calendar with today marked
 - A background palette chosen automatically from the month and season
 
-## Settings (hover top-right for the gear)
+## Settings
+
+Hover the **bottom-right gear**, or **click the big date numeral**, to open the
+panel. (The numeral works as a fallback when a menu bar or dock covers the gear.)
 
 | Setting        | Options                    |
 | -------------- | -------------------------- |
